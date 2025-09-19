@@ -3,6 +3,7 @@ package com.techmania.conductorapp.data.repository
 import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Looper
+import android.util.Log
 import com.google.android.gms.location.*
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -114,14 +115,26 @@ class TripRepository @Inject constructor(
             .build()
 
         locationCallback = object : LocationCallback() {
+
             override fun onLocationResult(locationResult: LocationResult) {
                 locationResult.lastLocation?.let { location ->
-                    val vehicleUpdate = mapOf(
-                        "location" to GeoPoint(location.latitude, location.longitude),
-                        "speed" to (location.speed * 3.6).toLong(), // m/s to km/h
-                        "lastUpdated" to FieldValue.serverTimestamp()
-                    )
-                    firestore.collection("vehicles").document(busId).update(vehicleUpdate)
+                    // ADD A LOG TO SEE THE ACCURACY
+                    Log.d("ConductorApp", "Location received. Accuracy: ${location.accuracy} meters")
+
+                    // ONLY UPDATE FIRESTORE IF THE ACCURACY IS GOOD (e.g., less than 50 meters)
+                    if (location.hasAccuracy() && location.accuracy < 50.0f) {
+                        Log.d("ConductorApp", "Broadcasting location: ${location.latitude}, ${location.longitude}")
+
+                        val vehicleUpdate = mapOf(
+                            "location" to GeoPoint(location.latitude, location.longitude),
+                            "speed" to (location.speed * 3.6).toLong(), // m/s to km/h
+                            "lastUpdated" to FieldValue.serverTimestamp()
+                        )
+                        firestore.collection("vehicles").document(busId).update(vehicleUpdate)
+                    } else {
+                        // Log that we are skipping a low-accuracy update
+                        Log.w("ConductorApp", "Skipping location update due to poor accuracy: ${location.accuracy} meters")
+                    }
                 }
             }
         }
