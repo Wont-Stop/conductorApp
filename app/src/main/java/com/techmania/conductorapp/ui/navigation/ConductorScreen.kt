@@ -8,6 +8,7 @@ package com.techmania.conductorapp.ui.navigation
 sealed class ConductorScreen(val route: String) {
     // Represents the Phone Number + OTP authentication screen
     object Login : ConductorScreen("login")
+    object Permission : ConductorScreen("permission") // <-- ADD THIS LINE
 
     // The main screen after login for managing a trip (QR scan, start/end trip)
     object TripManagement : ConductorScreen("trip_management")

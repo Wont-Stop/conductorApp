@@ -89,8 +89,7 @@ class LoginViewModel @Inject constructor(
             when (val result = authRepository.verifyOtpAndSignIn(currentVerificationId, otp)) {
                 is Resource.Success -> {
                     // Navigate to the main app screen on successful login
-                    _navigationEvent.emit(NavigationEvent.NavigateToTripManagement)
-                }
+                    _navigationEvent.emit(NavigationEvent.NavigateToPermission)                }
                 is Resource.Error -> {
                     _uiState.update { it.copy(isLoading = false, error = result.message) }
                 }
@@ -133,6 +132,6 @@ class LoginViewModel @Inject constructor(
     }
 
     sealed class NavigationEvent {
-        object NavigateToTripManagement : NavigationEvent()
+        object NavigateToPermission : NavigationEvent()
     }
 }

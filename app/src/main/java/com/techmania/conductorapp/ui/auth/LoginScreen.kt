@@ -35,9 +35,9 @@ fun LoginScreen(
     LaunchedEffect(key1 = true) {
         viewModel.navigationEvent.collectLatest { event ->
             when (event) {
-                LoginViewModel.NavigationEvent.NavigateToTripManagement -> {
-                    navController.navigate(ConductorScreen.TripManagement.route) {
-                        // Clear the login screen from the back stack
+                LoginViewModel.NavigationEvent.NavigateToPermission -> {
+                    // Correctly navigate to the Permission screen
+                    navController.navigate(ConductorScreen.Permission.route) {
                         popUpTo(ConductorScreen.Login.route) { inclusive = true }
                     }
                 }
