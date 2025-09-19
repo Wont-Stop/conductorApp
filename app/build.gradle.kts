@@ -86,7 +86,8 @@ dependencies {
     implementation(libs.guava)
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.6.2")
 
-
+    implementation(libs.play.services.location)
+    implementation("androidx.compose.material:material-icons-extended:<compose_version>")
 
     // Testing
     testImplementation(libs.junit)

@@ -11,5 +11,15 @@ data class TripManagementUiState(
     val step: TripStep = TripStep.SCAN_BUS,
     val scannedBusId: String? = null,
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+
+    // New fields for the active trip
+    val vacantSeats: Int = 0,
+    val nextStop: String? = "Loading...",
+    val quickMessages: List<String> = listOf(
+        "Delayed due to heavy traffic",
+        "Delayed due to fog",
+        "Bus halted due to technical issue",
+        "Bus halted due to accident"
+    )
 )

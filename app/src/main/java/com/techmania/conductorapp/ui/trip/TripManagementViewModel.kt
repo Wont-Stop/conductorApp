@@ -1,5 +1,6 @@
 package com.techmania.conductorapp.ui.trip
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.techmania.conductorapp.data.repository.AuthRepository
@@ -10,6 +11,8 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -26,72 +29,102 @@ class TripManagementViewModel @Inject constructor(
     private val _navigationEvent = MutableSharedFlow<NavigationEvent>()
     val navigationEvent = _navigationEvent.asSharedFlow()
 
-
-    // --- Event Handlers ---
-
-    /**
-     * Called when the QR code scanner successfully detects a bus ID.
-     */
     fun onQrCodeScanned(busId: String) {
         if (busId.isBlank()) return
-
-        // We now need to launch a coroutine to call the repository
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-
             when (val result = tripRepository.isValidBus(busId)) {
                 is Resource.Success -> {
-                    // If valid, proceed to the confirmation step
                     _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            scannedBusId = busId,
-                            step = TripStep.CONFIRM_TRIP
-                        )
+                        it.copy(isLoading = false, scannedBusId = busId, step = TripStep.CONFIRM_TRIP)
                     }
                 }
                 is Resource.Error -> {
-                    // If invalid, show an error message and stay on the scan step
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            error = result.message
-                        )
-                    }
+                    _uiState.update { it.copy(isLoading = false, error = result.message) }
                 }
-                else -> { /* No-op for Loading */ }
+                else -> {}
             }
         }
     }
 
-    /**
-     * Called when the conductor confirms the scanned bus to start the trip.
-     */
     fun onStartTripConfirmed() {
-        // TODO: Implement the logic in TripRepository to update the bus status in Firestore
-        // and start broadcasting the GPS location.
-
-        _uiState.update { it.copy(isLoading = true) }
-        // For now, we'll just move to the active state for UI demonstration.
-        _uiState.update { it.copy(isLoading = false, step = TripStep.TRIP_ACTIVE) }
+        val busId = _uiState.value.scannedBusId ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            when (tripRepository.startTrip(busId)) {
+                is Resource.Success -> {
+                    loadInitialData(busId) // Fetch seats and next stop
+                    _uiState.update { it.copy(isLoading = false, step = TripStep.TRIP_ACTIVE) }
+                }
+                is Resource.Error -> {
+                    _uiState.update { it.copy(isLoading = false, error = "Failed to start trip.") }
+                }
+                else -> {}
+            }
+        }
     }
 
-    /**
-     * Called when the conductor ends the active trip.
-     */
+    private fun loadInitialData(busId: String) {
+        tripRepository.getInitialTripData(busId).onEach { result ->
+            when (result) {
+                is Resource.Success -> {
+                    // This 'let' block safely unwraps the data
+                    result.data?.let { dataPair ->
+                        _uiState.update {
+                            it.copy(
+                                vacantSeats = dataPair.first,
+                                nextStop = dataPair.second
+                            )
+                        }
+                    }
+                }
+                is Resource.Error -> {
+                    _uiState.update { it.copy(error = "Could not load trip data.") }
+                }
+                is Resource.Loading -> {
+                    // You can add a loading state update here if needed
+                }
+            }
+        }.launchIn(viewModelScope)
+    }
+
+
+    fun onIncrementSeats() {
+        val busId = _uiState.value.scannedBusId ?: return
+        _uiState.update { it.copy(vacantSeats = it.vacantSeats + 1) }
+        viewModelScope.launch { tripRepository.updateSeats(busId, 1) }
+    }
+
+    fun onDecrementSeats() {
+        val busId = _uiState.value.scannedBusId ?: return
+        if (_uiState.value.vacantSeats > 0) {
+            _uiState.update { it.copy(vacantSeats = it.vacantSeats - 1) }
+            viewModelScope.launch { tripRepository.updateSeats(busId, -1) }
+        }
+    }
+
+    fun onSendQuickMessage(message: String) {
+        val busId = _uiState.value.scannedBusId ?: return
+        viewModelScope.launch { tripRepository.updateStatusMessage(busId, message) }
+    }
+
+    fun onAtStopClicked() {
+        val busId = _uiState.value.scannedBusId ?: return
+        val stopName = _uiState.value.nextStop ?: "the current stop"
+        viewModelScope.launch { tripRepository.updateStatusMessage(busId, "Bus is at $stopName") }
+    }
+
+
     fun onEndTripClicked() {
-        // TODO: Implement the logic in TripRepository to update bus status to "offline"
-        // and stop broadcasting GPS.
-
-        // Reset the screen to the initial state.
-        _uiState.update { TripManagementUiState() }
+        val busId = _uiState.value.scannedBusId ?: return
+        viewModelScope.launch {
+            tripRepository.endTrip(busId)
+            _uiState.update { TripManagementUiState() } // Reset state
+        }
     }
 
-    /**
-     * Resets the screen back to the QR scanning step from the confirmation step.
-     */
     fun onScanCancelled() {
-        _uiState.update { it.copy(step = TripStep.SCAN_BUS, scannedBusId = null) }
+        _uiState.update { it.copy(step = TripStep.SCAN_BUS, scannedBusId = null, error = null) }
     }
 
     fun onSignOutClicked() {
@@ -100,7 +133,6 @@ class TripManagementViewModel @Inject constructor(
             _navigationEvent.emit(NavigationEvent.NavigateToLogin)
         }
     }
-
 
     sealed class NavigationEvent {
         object NavigateToLogin : NavigationEvent()

@@ -37,6 +37,8 @@ androidx-material3 = { group = "androidx.compose.material3", name = "material3" 
 accompanist-permissions = { group = "com.google.accompanist", name = "accompanist-permissions", version.ref = "accompanist" }
 guava = { group = "com.google.guava", name = "guava", version.ref = "guava" }
 
+
+play-services-location = { group = "com.google.android.gms", name = "play-services-location", version = "21.2.0" }
 # Hilt
 hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
 hilt-compiler = { group = "com.google.dagger", name = "hilt-android-compiler", version.ref = "hilt" }
